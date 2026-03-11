@@ -4,6 +4,10 @@ This repo contains the source code for running a local
 [MCP](https://modelcontextprotocol.io) server that interacts with the
 [Google Ads API](https://developers.google.com/google-ads/api).
 
+## Fork changes (whcc)
+
+- **lightweight-search-description**: Replaced the ~400KB inline tool description with a compact version and a new `get_resource_fields` tool for on-demand field lookup. ([PR #1](https://github.com/whcc/google-ads-mcp/pull/1))
+
 ## Tools
 
 The server uses the
@@ -14,6 +18,7 @@ to provide several
 ### Tools available
 
 - `search`: Retrieves information about the Google Ads account.
+- `get_resource_fields`: Returns selectable, filterable, and sortable fields for a Google Ads API resource.
 - `list_accessible_customers`: Returns names of customers directly accessible
   by the user authenticating the call.
 
