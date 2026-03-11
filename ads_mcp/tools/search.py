@@ -14,9 +14,34 @@
 
 """Tools for exposing the API Search method to the MCP server."""
 
-from typing import Any, Dict, List
+import json
+from typing import Any, Dict, List, Optional
 from ads_mcp.coordinator import mcp
 import ads_mcp.utils as utils
+
+
+@mcp.tool()
+def get_resource_fields(resource: Optional[str] = None) -> list | dict:
+    """Returns field metadata for a Google Ads API resource.
+
+    Args:
+        resource: The resource name to look up (e.g. "campaign", "ad_group").
+                  If omitted, returns a list of all available resource names.
+    """
+    with open(utils.get_gaql_resources_filepath(), "r") as f:
+        resources = json.load(f)
+
+    if resource is None:
+        return [r["resource"] for r in resources]
+
+    for r in resources:
+        if r["resource"] == resource:
+            return r
+
+    return {
+        "error": f"Unknown resource '{resource}'. "
+        "Call with no arguments to list all resources."
+    }
 
 
 def search(
@@ -68,59 +93,30 @@ def search(
     return final_output
 
 
-def _search_tool_description() -> str:
-    """Returns the description for the `search` tool."""
-    # Add a warning that will be part of the description
-    file_content = (
-        "WARNING: The table of selectable fields is missing. "
-        "Tool may not function correctly."
-    )
+_SEARCH_DESCRIPTION = """\
+Fetches data from the Google Ads API using GAQL (Google Ads Query Language).
 
-    try:
-        with open(utils.get_gaql_resources_filepath(), "r") as file:
-            file_content = file.read()
-    except FileNotFoundError:
-        utils.logger.error("The specified file was not found.")
+Constructs: SELECT fields FROM resource [WHERE conditions] [ORDER BY orderings] [LIMIT n]
 
-    return f"""
-{search.__doc__}
+### Rules
+- customer_id: string of digits only, no hyphens (e.g. "1234567890" not "123-456-7890")
+- Dates: YYYY-MM-DD format with dashes. Never use GAQL date literals.
+- Date ranges must be finite with both a start and end date.
+- change_event queries must have LIMIT <= 10000
+- All field names must be fully qualified (e.g. "campaign.name", not "name"). No wildcards.
+- For conversion issues, try the offline_conversion_upload_conversion_action_summary resource.
 
-### Hints
-    Language Grammar can be found at https://developers.google.com/google-ads/api/docs/query/grammar
-    All resources and descriptions are found at https://developers.google.com/google-ads/api/fields/v21/overview
+### Finding valid fields
+Call get_resource_fields with a resource name to discover its selectable, filterable, and sortable fields.
 
-    For Conversion issues try looking in offline_conversion_upload_conversion_action_summary
-
-### Hint for customer_id
-    should be a string of numbers without punctuation
-    if presented in the form 123-456-7890 remove the hyphens and use 1234567890
-
-### Hints for Dates
-    All dates should be in the form YYYY-MM-DD and must include the dashes (-)
-    Date literals from the Grammar must NEVER be used
-    Date ranges should be finite and must include a start and end date
-
-### Hints for limits
-    Requests to resource change_event must specify a LIMIT of less than or equal to 10000
-
-### Hints for conversions questions
-    https://developers.google.com/google-ads/api/docs/conversions/upload-summaries 
-
-
-### Hints for all fields
-    What follows is a table of resources and their selectable fields (fields), filterable fields (used in the condition) and sortable fields (use in the ordering)
-    Fields are comma separated, the whole field must be used, wildcards and partial fields are not allowed
-    All fields must come from this table and be prefixed with the resource being searched
-    {file_content}
+### References
+- GAQL grammar: https://developers.google.com/google-ads/api/docs/query/grammar
+- All resources: https://developers.google.com/google-ads/api/fields/v21/overview
+- Conversion summaries: https://developers.google.com/google-ads/api/docs/conversions/upload-summaries
 """
 
-
-# The `search` tool requires a more complex description that's generated at
-# runtime. Uses the `add_tool` method instead of an annnotation since `add_tool`
-# provides the flexibility needed to generate the description while also
-# including the `search` method's docstring.
 mcp.add_tool(
     search,
     title="Fetches data from the Google Ads API using the search method",
-    description=_search_tool_description(),
+    description=_SEARCH_DESCRIPTION,
 )
